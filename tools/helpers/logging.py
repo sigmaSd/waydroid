@@ -60,7 +60,8 @@ def init(args):
     verbose log level.
     """
     # Set log file descriptor (logfd)
-    if args.details_to_stdout:
+    # If the user is not root, log to stdout
+    if args.details_to_stdout or os.getuid() != 0:
         setattr(args, "logfd", sys.stdout)
     else:
         # Require containing directory to exist (so we don't create the work
