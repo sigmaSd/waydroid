@@ -80,8 +80,24 @@ def setup_config(args):
     cfg["waydroid"]["hwbinder"] = args.HWBINDER_DRIVER
     tools.config.save(args, cfg)
 
+def checkRequirement():
+    """ Check hardware requirement for running waydroid"""
+    def cpu():
+        with open("/proc/cpuinfo", "r") as f:
+            data = f.read()
+            if not ("ssse3" in data and "sse4_1" in data and "sse4_2" in data):
+                raise RuntimeError("Cpu doesn't support the required instructions [ssse3 | sse4_1 | sse4_2]")
+    def gpu():
+        with open("/proc/modules", "r") as f:
+            data = f.read()
+            if "nvidia" in data:
+                logging.warn("\nProperty Nvidia driver detected and it is not supported\nYou can either:\n1- Switch to igpu\n2- Switch to software rendering (see https://wiki.archlinux.org/title/Waydroid#Gpu_Requirement)")
+    cpu()
+    gpu()
+
 def init(args):
     if not os.path.isfile(args.config) or args.force:
+        checkRequirement()
         setup_config(args)
         status = "STOPPED"
         if os.path.exists(tools.config.defaults["lxc"] + "/waydroid"):
