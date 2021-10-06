@@ -4,6 +4,8 @@ import logging
 import os
 from tools import helpers
 import tools.config
+import subprocess
+import gzip
 
 
 def get_vendor_type(args):
@@ -81,7 +83,7 @@ def setup_config(args):
     tools.config.save(args, cfg)
 
 def checkRequirement():
-    """ Check hardware requirement for running waydroid"""
+    """ Check the requirements for running waydroid"""
     def cpu():
         with open("/proc/cpuinfo", "r") as f:
             data = f.read()
@@ -92,8 +94,25 @@ def checkRequirement():
             data = f.read()
             if "nvidia" in data:
                 logging.warn("\nProperty Nvidia driver detected and it is not supported\nYou can either:\n1- Switch to igpu\n2- Switch to software rendering (see https://wiki.archlinux.org/title/Waydroid#Gpu_Requirement)")
+    def kernelModules():
+        requiredModules = set(["CONFIG_ASHMEM","CONFIG_ANDROID","CONFIG_ANDROID_BINDER_IPC","CONFIG_ANDROID_BINDERFS"])
+        with gzip.open("/proc/config.gz", "rt") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                module, module_state = line.split("=")
+                if module not in requiredModules:
+                    continue
+                if module_state != "y" and module_state != "m":
+                    raise RuntimeError("Kernel module {} is not enabled".format(module))
+                requiredModules.discard(module)
+            if requiredModules:
+                raise RuntimeError("Kernel modules: {} are not enabled".format(requiredModules))
+
     cpu()
     gpu()
+    kernelModules()
 
 def init(args):
     if not os.path.isfile(args.config) or args.force:
